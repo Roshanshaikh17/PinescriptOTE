@@ -7,8 +7,9 @@ slLevel    = input.float(0.90, "Stop Loss Fib Level", step=0.01)
 rr         = input.float(2.0, "Risk Reward", step=0.1)
 
 // ===================== TIMEFRAMES =====================
+// ===================== TIMEFRAME FILTER =====================
 htf = "60"
-
+isHTF = timeframe.period == htf
 // ===================== HTF DATA =====================
 [htfHigh, htfLow, htfClose] = request.security(syminfo.tickerid, htf, [high, low, close])
 [prevHigh, prevLow]         = request.security(syminfo.tickerid, htf, [high[1], low[1]])
@@ -57,14 +58,24 @@ shortTP    = shortEntry - (shortSL - shortEntry) * rr
 longCondition  = fibActive and bullish and not tradeTaken and low <= longEntry
 shortCondition = fibActive and not bullish and not tradeTaken and high >= shortEntry
 
-if longCondition
+// ===================== LONG =====================
+if longCondition and isHTF
+    tradeTaken := true
+    label.new(bar_index, high, "LONG", style=label.style_label_up, color=color.new(color.green, 0), textcolor=color.white)
+
+if longCondition and not isHTF
     tradeTaken := true
     label.new(bar_index, longEntry, "LONG", style=label.style_label_up, color=color.new(color.green, 0))
     line.new(bar_index, longEntry, bar_index + 50, longEntry, color=color.green)
     line.new(bar_index, longSL, bar_index + 50, longSL, color=color.red)
     line.new(bar_index, longTP, bar_index + 50, longTP, color=color.blue)
 
-if shortCondition
+// ===================== SHORT =====================
+if shortCondition and isHTF
+    tradeTaken := true
+    label.new(bar_index, low, "SHORT", style=label.style_label_down, color=color.new(color.red, 0), textcolor=color.white)
+
+if shortCondition and not isHTF
     tradeTaken := true
     label.new(bar_index, shortEntry, "SHORT", style=label.style_label_down, color=color.new(color.red, 0))
     line.new(bar_index, shortEntry, bar_index + 50, shortEntry, color=color.red)
@@ -72,7 +83,5 @@ if shortCondition
     line.new(bar_index, shortTP, bar_index + 50, shortTP, color=color.blue)
 
 // ===================== VISUAL FIB LEVELS =====================
-plot(fibActive ? longEntry : na, title="Fib 0.62", color=color.orange, style=plot.style_linebr)
-plot(fibActive ? longSL : na, title="Fib 0.90 (SL)", color=color.red, style=plot.style_linebr)
-
-//Hello
+plot(not isHTF and fibActive ? longEntry : na, title="Fib 0.62", color=color.orange, style=plot.style_linebr)
+plot(not isHTF and fibActive ? longSL : na, title="Fib 0.90 (SL)", color=color.red, style=plot.style_linebr)
