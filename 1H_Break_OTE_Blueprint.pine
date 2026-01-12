@@ -1,0 +1,76 @@
+//@version=5
+indicator("1H Break → OTE Fib (MTF Blueprint)", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// ===================== INPUTS =====================
+entryLevel = input.float(0.62, "Entry Fib Level", step=0.01)
+slLevel    = input.float(0.90, "Stop Loss Fib Level", step=0.01)
+rr         = input.float(2.0, "Risk Reward", step=0.1)
+
+// ===================== TIMEFRAMES =====================
+htf = "60"
+
+// ===================== HTF DATA =====================
+[htfHigh, htfLow, htfClose] = request.security(syminfo.tickerid, htf, [high, low, close])
+[prevHigh, prevLow]         = request.security(syminfo.tickerid, htf, [high[1], low[1]])
+
+// ===================== STATE VARIABLES =====================
+var float fibHigh = na
+var float fibLow  = na
+var bool fibActive = false
+var bool tradeTaken = false
+var bool bullish = false
+
+// ===================== NEW HOUR DETECTION =====================
+newHour = ta.change(time(htf))
+
+// ===================== FIB CREATION LOGIC =====================
+if newHour
+    fibActive := false
+    tradeTaken := false
+
+    // Bullish Break
+    if htfClose[1] > prevHigh[1]
+        fibLow := htfLow[1]
+        fibHigh := htfHigh[1]
+        fibActive := true
+        bullish := true
+
+    // Bearish Break
+    else if htfClose[1] < prevLow[1]
+        fibHigh := htfHigh[1]
+        fibLow := htfLow[1]
+        fibActive := true
+        bullish := false
+
+// ===================== FIB CALCULATIONS =====================
+fibRange = fibHigh - fibLow
+
+longEntry = fibHigh - fibRange * entryLevel
+longSL    = fibHigh - fibRange * slLevel
+longTP    = longEntry + (longEntry - longSL) * rr
+
+shortEntry = fibLow + fibRange * entryLevel
+shortSL    = fibLow + fibRange * slLevel
+shortTP    = shortEntry - (shortSL - shortEntry) * rr
+
+// ===================== ENTRY CONDITIONS (1 MIN) =====================
+longCondition  = fibActive and bullish and not tradeTaken and low <= longEntry
+shortCondition = fibActive and not bullish and not tradeTaken and high >= shortEntry
+
+if longCondition
+    tradeTaken := true
+    label.new(bar_index, longEntry, "LONG", style=label.style_label_up, color=color.new(color.green, 0))
+    line.new(bar_index, longEntry, bar_index + 50, longEntry, color=color.green)
+    line.new(bar_index, longSL, bar_index + 50, longSL, color=color.red)
+    line.new(bar_index, longTP, bar_index + 50, longTP, color=color.blue)
+
+if shortCondition
+    tradeTaken := true
+    label.new(bar_index, shortEntry, "SHORT", style=label.style_label_down, color=color.new(color.red, 0))
+    line.new(bar_index, shortEntry, bar_index + 50, shortEntry, color=color.red)
+    line.new(bar_index, shortSL, bar_index + 50, shortSL, color=color.green)
+    line.new(bar_index, shortTP, bar_index + 50, shortTP, color=color.blue)
+
+// ===================== VISUAL FIB LEVELS =====================
+plot(fibActive ? longEntry : na, title="Fib 0.62", color=color.orange, style=plot.style_linebr)
+plot(fibActive ? longSL : na, title="Fib 0.90 (SL)", color=color.red, style=plot.style_linebr)
